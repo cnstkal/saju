@@ -76,33 +76,31 @@ button.primary:hover{opacity:.85;}
 <script type="text/babel">
 const {useState, useEffect} = React;
 
-const SAZU_API_KEY = "sazu_free_72ad7194ee7dcef97843d39652a9d8b323d23b53172562399bff24751c842198";
-
-const fetchSajuData = async (person) => {
-  const response = await fetch('https://api.sazu.app/v1/sazu/calculate', {
+const fetchSajuData = async (person, geminiKey) => {
+  const response = await fetch('https://saju-api-s6x0.onrender.com/saju', {
     method: 'POST',
-    headers: {
-      'x-api-key': SAZU_API_KEY,
-      'Content-Type': 'application/json'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      birthYear: person.year,
-      birthMonth: person.month,
-      birthDay: person.day,
-      birthHour: person.hourUnknown ? null : parseInt(person.hour) || 0,
-      birthMinute: person.minute || 0,
-      isFemale: !!person.isFemale,
-      isLunar: !!person.isLunar,
-      modules: ["fourPillars","elements","summary","tables","decadeFortune","sinStrength"]
+      year: person.year,
+      month: person.month,
+      day: person.day,
+      hour: person.hourUnknown ? null : (parseInt(person.hour) || 0),
+      minute: parseInt(person.minute) || 0,
+      gender: person.gender,
+      calendar: person.calendar,
+      geminiKey: geminiKey,
+      question: `${person.name}의 사주를 분석해줘.`
     })
   });
 
   if (!response.ok) {
     const text = await response.text();
-    console.log("SAZU ERROR:", text);
+    console.log("SAJU ERROR:", text);
     throw new Error(text);
   }
-  return await response.json();
+  const data = await response.json();
+  if (!data.success) throw new Error('사주 계산에 실패했습니다.');
+  return data.result;
 };
 
 const TRIVIA = [
@@ -162,8 +160,8 @@ function App(){
   const [step, setStep] = useState('setup');
   const [apiKey, setApiKey] = useState('');
   const [error, setError] = useState('');
-  const [personA, setPersonA] = useState({ name:'나', year:1995, month:5, day:15, hour:'', hourUnknown:false });
-  const [personB, setPersonB] = useState({ name:'최애', year:1994, month:9, day:12, hour:'', hourUnknown:false });
+  const [personA, setPersonA] = useState({ name:'나', year:1995, month:5, day:15, hour:'', hourUnknown:false, minute:0, gender:'male', calendar:'solar' });
+  const [personB, setPersonB] = useState({ name:'최애', year:1994, month:9, day:12, hour:'', hourUnknown:false, minute:0, gender:'female', calendar:'solar' });
   const [resultData, setResultData] = useState(null);
   const [triviaIdx, setTriviaIdx] = useState(0);
 
@@ -191,7 +189,7 @@ function App(){
     setError('');
     let sajuData;
     try {
-      const [sajuA, sajuB] = await Promise.all([fetchSajuData(personA), fetchSajuData(personB)]);
+      const [sajuA, sajuB] = await Promise.all([fetchSajuData(personA, apiKey), fetchSajuData(personB, apiKey)]);
       sajuData = { personA: sajuA, personB: sajuB };
     } catch (err) {
       console.error(err);
@@ -323,6 +321,21 @@ function App(){
                   <input type="checkbox" style={{width:'auto'}} checked={personA.hourUnknown} onChange={e=>setPersonA({...personA, hourUnknown:e.target.checked})} /> 생시 모름
                 </label>
               </div>
+              <div className="row3" style={{marginTop:12}}>
+                <div><label>분(MM)</label><input type="number" min="0" max="59" value={personA.minute} onChange={e=>setPersonA({...personA, minute:parseInt(e.target.value)||0})} /></div>
+                <div><label>성별</label>
+                  <select value={personA.gender} onChange={e=>setPersonA({...personA, gender:e.target.value})}>
+                    <option value="male">남</option>
+                    <option value="female">여</option>
+                  </select>
+                </div>
+                <div><label>양/음력</label>
+                  <select value={personA.calendar} onChange={e=>setPersonA({...personA, calendar:e.target.value})}>
+                    <option value="solar">양력</option>
+                    <option value="lunar">음력</option>
+                  </select>
+                </div>
+              </div>
             </div>
             <div className="person">
               <h3>캐릭터 B (상대방)</h3>
@@ -341,6 +354,21 @@ function App(){
                 <label style={{marginTop:8,display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
                   <input type="checkbox" style={{width:'auto'}} checked={personB.hourUnknown} onChange={e=>setPersonB({...personB, hourUnknown:e.target.checked})} /> 생시 모름
                 </label>
+              </div>
+              <div className="row3" style={{marginTop:12}}>
+                <div><label>분(MM)</label><input type="number" min="0" max="59" value={personB.minute} onChange={e=>setPersonB({...personB, minute:parseInt(e.target.value)||0})} /></div>
+                <div><label>성별</label>
+                  <select value={personB.gender} onChange={e=>setPersonB({...personB, gender:e.target.value})}>
+                    <option value="male">남</option>
+                    <option value="female">여</option>
+                  </select>
+                </div>
+                <div><label>양/음력</label>
+                  <select value={personB.calendar} onChange={e=>setPersonB({...personB, calendar:e.target.value})}>
+                    <option value="solar">양력</option>
+                    <option value="lunar">음력</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
