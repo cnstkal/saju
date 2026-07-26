@@ -48,7 +48,7 @@ button.primary:hover{opacity:.85;}
 @media(max-width:640px){.profiles{grid-template-columns:1fr;}}
 .profile{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;}
 .profile h3{font-size:15px;margin:0 0 10px;color:var(--text);}
-.profile p{font-size:13px;color:var(--sub);line-height:1.7;margin:0;}
+.profile p{font-size:13px;color:var(--sub);line-height:1.8;margin:0;white-space:pre-line;}
 .cc-box{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px;}
 .cc-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
 @media(max-width:640px){.cc-grid{grid-template-columns:1fr;}}
@@ -92,8 +92,8 @@ function App(){
   const [step, setStep] = useState('setup');
   const [apiKey, setApiKey] = useState('');
   const [error, setError] = useState('');
-  const [personA, setPersonA] = useState({ name:'나', year:1995, month:5, day:15 });
-  const [personB, setPersonB] = useState({ name:'최애', year:1994, month:9, day:12 });
+  const [personA, setPersonA] = useState({ name:'나', year:1995, month:5, day:15, hour:'', hourUnknown:false });
+  const [personB, setPersonB] = useState({ name:'최애', year:1994, month:9, day:12, hour:'', hourUnknown:false });
   const [resultData, setResultData] = useState(null);
 
   const handleStartSetup = (e) => {
@@ -114,20 +114,29 @@ function App(){
     const tropes = ["혐관에서 찐사랑","소꿉친구에서 연인","햇살캐와 츤데레","계략공과 눈치제로수","운명적인 첫눈에 반함","티격태격 배틀호모","쌍방구원 서사"];
     const randomTrope = tropes[Math.floor(Math.random() * tropes.length)];
 
-    const systemPrompt = `당신은 사주 오행(목,화,토,금,수) 데이터를 해석하는 동시에 트렌디한 웹소설 세계관을 창작하는 인공지능 작가입니다.
-    전문 사주 용어 없이 자연스러운 한 문장으로 각 인물의 기질을 설명하고, 두 사람의 궁합을 담백한 한 문장으로 정의하며, 다양한 세계관과 역할을 조합해 서사를 창작합니다.
+    const hourTextA = personA.hourUnknown ? '생시 모름 (연/월/일 기운 위주로만 해석)' : `${personA.hour}시`;
+    const hourTextB = personB.hourUnknown ? '생시 모름 (연/월/일 기운 위주로만 해석)' : `${personB.hour}시`;
+
+    const systemPrompt = `당신은 실제로 사주를 오래 봐온 사람처럼 말하는 사주 해설가이자, 동시에 그 사주를 소재로 웹소설 세계관을 창작하는 작가입니다.
+    말투는 "은근 이런 타입입니다", "생각보다 고집이 꽤 있는 편이에요", "이 부분은 좀 인정해야 합니다"처럼 친근하고 팩폭 섞인 구어체를 씁니다. 딱딱한 설명체나 AI스러운 문장은 금지합니다.
+    개인 사주 해설은 일간/월지/일지/오행의 강약과 과부족 기운을 실제로 짚어가며, 그 사람만의 개성이 느껴지도록 구체적으로 씁니다.
+    궁합은 좋은 말만 하지 말고 장점과 단점을 솔직하게, 직설적으로 씁니다.
+    세계관과 역할은 리더십/추진력이 강한 사주는 길드장·황제·팀장류, 탐구/분석 성향은 연구원·의사·교수·형사류처럼 사주 성향과 자연스럽게 연결되도록 폭넓은 풀에서 다양하게 선택하고 반복하지 않습니다.
+    프롤로그는 설정 설명이 아니라 이미 이야기가 한창 진행 중인 하이라이트 장면(대치, 고백 직전, 구출, 첫 키스 직전, 진실 폭로 등) 하나를 대사와 행동, 긴장감 중심으로 생생하게 씁니다.
     결과는 반드시 제공된 JSON 스키마에 맞게 출력해야 합니다.`;
 
     const userPrompt = `
-      [캐릭터 A (${personA.name})] 오행: 목${elementsA.목} 화${elementsA.화} 토${elementsA.토} 금${elementsA.금} 수${elementsA.수}
-      [캐릭터 B (${personB.name})] 오행: 목${elementsB.목} 화${elementsB.화} 토${elementsB.토} 금${elementsB.금} 수${elementsB.수}
+      [캐릭터 A (${personA.name})] 오행: 목${elementsA.목} 화${elementsA.화} 토${elementsA.토} 금${elementsA.금} 수${elementsA.수} / 생시: ${hourTextA}
+      [캐릭터 B (${personB.name})] 오행: 목${elementsB.목} 화${elementsB.화} 토${elementsB.토} 금${elementsB.금} 수${elementsB.수} / 생시: ${hourTextB}
 
-      위 오행 데이터를 바탕으로 다음을 작성해주세요:
-      1. lineA: A의 사주를 사주 용어 없이 자연스러운 한 문장으로 성격/기질 설명 (예: "신중하지만 결정적인 순간에는 누구보다 강하게 밀어붙이는 사람.")
-      2. lineB: B도 같은 방식으로 한 문장.
-      3. relationLine: 오직 두 사람의 사주 궁합만 보고 짧고 담백한 한 문장으로 관계 정의 (예: "서로를 변화시키는 인연.", "부딪힐수록 더 단단해지는 관계.")
-      4. storySetting: 세계관 + A의 역할 + B의 역할을 자연스럽게 조합한 한 문장. 세계관과 역할은 매번 다양하게(디스토피아, 헌터물, 궁정, 캠퍼스, 아포칼립스, 회귀, 재벌, 밴드, 우주, 마법학교 등 폭넓은 풀에서) 생성하고 반복하지 말 것. 추천 분위기 키워드: '${randomTrope}'. (예: "디스토피아 세계에서 만난 조직원과 의사의 생존 서사.")
-      5. prologue: storySetting을 반드시 그대로 반영한 약 600자 분량의 팬픽 프롤로그. 설정과 내용이 어긋나면 안 됨.
+      다음을 작성해주세요:
+      1. lineA: A의 사주 풀이 3~4문장. 오행의 강약, 부족하거나 넘치는 기운, 실제 성향을 사주 용어(일간/월지/일지 느낌)를 자연스럽게 섞어 친근한 구어체로. 기계적 설명 금지, 팩폭 톤 포함.
+      2. lineB: B도 같은 방식으로 3~4문장.
+      3. relationLine: 두 사람 궁합을 직설적이고 솔직하게 2~3문장. 장점과 단점 모두 언급. "와 맞는데?" 싶게 구체적으로.
+      4. compatibilityScore: 100점 만점 궁합 점수(정수).
+      5. scoreReason: 그 점수가 나온 이유를 1~2문장으로.
+      6. storySetting: 세계관 + A역할 + B역할을 자연스럽게 이은 한 문장. 두 사람의 사주 성향과 연결되게. 세계관/역할 풀은 최대한 다양하게(디스토피아,캠퍼스,판타지,무협,SF,사이버펑크,헌터,궁정,황실,아이돌,재벌,법정,느와르,첩보,우주,마피아,마법학교,회귀,아포칼립스 등 / 의사,조직원,기사,황태자,길드장,연구원,해커,형사,검사,군인,교수,CEO,스파이 등). 분위기 참고: '${randomTrope}'.
+      7. prologue: storySetting 그대로 반영, 약 600자, 설명 없이 이야기가 한창 진행 중인 하이라이트 장면 하나(대사/행동/긴장감 중심)로.
     `;
 
     const payload = {
@@ -141,10 +150,12 @@ function App(){
             lineA:{ type:"STRING" },
             lineB:{ type:"STRING" },
             relationLine:{ type:"STRING" },
+            compatibilityScore:{ type:"NUMBER" },
+            scoreReason:{ type:"STRING" },
             storySetting:{ type:"STRING" },
             prologue:{ type:"STRING" }
           },
-          required:["lineA","lineB","relationLine","storySetting","prologue"]
+          required:["lineA","lineB","relationLine","compatibilityScore","scoreReason","storySetting","prologue"]
         }
       }
     };
@@ -210,6 +221,13 @@ function App(){
                 <div><label>월(MM)</label><input type="number" min="1" max="12" value={personA.month} onChange={e=>setPersonA({...personA, month:parseInt(e.target.value)||1})} /></div>
                 <div><label>일(DD)</label><input type="number" min="1" max="31" value={personA.day} onChange={e=>setPersonA({...personA, day:parseInt(e.target.value)||1})} /></div>
               </div>
+              <div className="field" style={{marginTop:12}}>
+                <label>생시(시간)</label>
+                <input type="number" min="0" max="23" placeholder="0~23시" disabled={personA.hourUnknown} value={personA.hour} onChange={e=>setPersonA({...personA, hour:e.target.value})} />
+                <label style={{marginTop:8,display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+                  <input type="checkbox" style={{width:'auto'}} checked={personA.hourUnknown} onChange={e=>setPersonA({...personA, hourUnknown:e.target.checked})} /> 생시 모름
+                </label>
+              </div>
             </div>
             <div className="person">
               <h3>캐릭터 B (상대방)</h3>
@@ -221,6 +239,13 @@ function App(){
                 <div><label>년(YYYY)</label><input type="number" value={personB.year} onChange={e=>setPersonB({...personB, year:parseInt(e.target.value)||0})} /></div>
                 <div><label>월(MM)</label><input type="number" min="1" max="12" value={personB.month} onChange={e=>setPersonB({...personB, month:parseInt(e.target.value)||1})} /></div>
                 <div><label>일(DD)</label><input type="number" min="1" max="31" value={personB.day} onChange={e=>setPersonB({...personB, day:parseInt(e.target.value)||1})} /></div>
+              </div>
+              <div className="field" style={{marginTop:12}}>
+                <label>생시(시간)</label>
+                <input type="number" min="0" max="23" placeholder="0~23시" disabled={personB.hourUnknown} value={personB.hour} onChange={e=>setPersonB({...personB, hour:e.target.value})} />
+                <label style={{marginTop:8,display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+                  <input type="checkbox" style={{width:'auto'}} checked={personB.hourUnknown} onChange={e=>setPersonB({...personB, hourUnknown:e.target.checked})} /> 생시 모름
+                </label>
               </div>
             </div>
           </div>
@@ -254,7 +279,9 @@ function App(){
         </div>
         <div className="cc-box" style={{textAlign:'center'}}>
           <h4 style={{margin:'0 0 8px',fontSize:13,color:'var(--sub)'}}>사주 궁합</h4>
-          <p style={{margin:0,fontSize:16,fontWeight:600}}>{resultData.relationLine}</p>
+          <p style={{margin:'0 0 12px',fontSize:15,lineHeight:1.7}}>{resultData.relationLine}</p>
+          <div style={{fontSize:28,fontWeight:700,color:'var(--accent2)'}}>{resultData.compatibilityScore} <span style={{fontSize:14,color:'var(--sub)',fontWeight:400}}>/ 100</span></div>
+          <p style={{margin:'8px 0 0',fontSize:12,color:'var(--sub)'}}>{resultData.scoreReason}</p>
         </div>
         <div className="cc-box" style={{textAlign:'center'}}>
           <h4 style={{margin:'0 0 8px',fontSize:13,color:'var(--sub)'}}>AI 서사 설정</h4>
