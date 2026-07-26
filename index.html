@@ -2,14 +2,17 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>CP 서사 생성기</title>
 <style>
 :root{
-  --bg:#0b0b0d; --panel:#141416; --panel2:#1b1b1f; --border:#26262b;
-  --text:#e8e8ea; --sub:#8b8b93; --accent:#6e6ef0; --accent2:#c76e9e;
-  --ok:#4caf7d; --bad:#d9736b;
+  --bg:#f7f7f8; --panel:#ffffff; --panel2:#f2f2f4; --border:#e2e2e6;
+  --text:#1b1b1f; --sub:#6f6f78; --accent:#6e6ef0; --accent2:#b0578a;
+  --ok:#2e9e63; --bad:#c9483e;
 }
 *{box-sizing:border-box;}
+html{touch-action:manipulation;}
+input{font-size:16px;}
 body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Pretendard','Segoe UI',sans-serif;}
 .screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:36px;width:100%;max-width:420px;}
@@ -111,19 +114,20 @@ function App(){
     const tropes = ["혐관에서 찐사랑","소꿉친구에서 연인","햇살캐와 츤데레","계략공과 눈치제로수","운명적인 첫눈에 반함","티격태격 배틀호모","쌍방구원 서사"];
     const randomTrope = tropes[Math.floor(Math.random() * tropes.length)];
 
-    const systemPrompt = `당신은 사주 오행(목,화,토,금,수) 데이터에 기반하여 트렌디하고 달달한 로맨스 웹소설 스타일의 커플(CP) 서사를 창작하는 인공지능 작가입니다. 
-    딱딱한 사주 풀이가 아닌, 각자의 오행 기운을 웹소설 캐릭터 속성(예: 화 기운=다혈질/직진, 수 기운=차분함/비밀스러움 등)으로 재해석하여 썰을 풀어주세요.
+    const systemPrompt = `당신은 사주 오행(목,화,토,금,수) 데이터를 해석하는 동시에 트렌디한 웹소설 세계관을 창작하는 인공지능 작가입니다.
+    전문 사주 용어 없이 자연스러운 한 문장으로 각 인물의 기질을 설명하고, 두 사람의 궁합을 담백한 한 문장으로 정의하며, 다양한 세계관과 역할을 조합해 서사를 창작합니다.
     결과는 반드시 제공된 JSON 스키마에 맞게 출력해야 합니다.`;
 
     const userPrompt = `
       [캐릭터 A (${personA.name})] 오행: 목${elementsA.목} 화${elementsA.화} 토${elementsA.토} 금${elementsA.금} 수${elementsA.수}
       [캐릭터 B (${personB.name})] 오행: 목${elementsB.목} 화${elementsB.화} 토${elementsB.토} 금${elementsB.금} 수${elementsB.수}
-      
+
       위 오행 데이터를 바탕으로 다음을 작성해주세요:
-      1. 각 캐릭터의 성격과 매력 포인트 해석 (오행 기반)
-      2. 두 사람의 긍정적 케미 포인트 2개 (짧은 문장)
-      3. 두 사람의 갈등 포인트 2개 (짧은 문장)
-      4. 두 사람의 관계를 보여주는 달달하고 극적인 로맨스 서사 1문단 (웹소설 풍으로 3~4문장). 이번 서사의 추천 클리셰는 '${randomTrope}' 느낌을 가미해주세요.
+      1. lineA: A의 사주를 사주 용어 없이 자연스러운 한 문장으로 성격/기질 설명 (예: "신중하지만 결정적인 순간에는 누구보다 강하게 밀어붙이는 사람.")
+      2. lineB: B도 같은 방식으로 한 문장.
+      3. relationLine: 오직 두 사람의 사주 궁합만 보고 짧고 담백한 한 문장으로 관계 정의 (예: "서로를 변화시키는 인연.", "부딪힐수록 더 단단해지는 관계.")
+      4. storySetting: 세계관 + A의 역할 + B의 역할을 자연스럽게 조합한 한 문장. 세계관과 역할은 매번 다양하게(디스토피아, 헌터물, 궁정, 캠퍼스, 아포칼립스, 회귀, 재벌, 밴드, 우주, 마법학교 등 폭넓은 풀에서) 생성하고 반복하지 말 것. 추천 분위기 키워드: '${randomTrope}'. (예: "디스토피아 세계에서 만난 조직원과 의사의 생존 서사.")
+      5. prologue: storySetting을 반드시 그대로 반영한 약 600자 분량의 팬픽 프롤로그. 설정과 내용이 어긋나면 안 됨.
     `;
 
     const payload = {
@@ -134,13 +138,13 @@ function App(){
         responseSchema: {
           type:"OBJECT",
           properties:{
-            characterA:{ type:"STRING" },
-            characterB:{ type:"STRING" },
-            chemistryPoints:{ type:"ARRAY", items:{ type:"STRING" } },
-            conflictPoints:{ type:"ARRAY", items:{ type:"STRING" } },
-            story:{ type:"STRING" }
+            lineA:{ type:"STRING" },
+            lineB:{ type:"STRING" },
+            relationLine:{ type:"STRING" },
+            storySetting:{ type:"STRING" },
+            prologue:{ type:"STRING" }
           },
-          required:["characterA","characterB","chemistryPoints","conflictPoints","story"]
+          required:["lineA","lineB","relationLine","storySetting","prologue"]
         }
       }
     };
@@ -245,23 +249,19 @@ function App(){
           <p>오행으로 분석한 두 사람의 운명적 관계성</p>
         </div>
         <div className="profiles">
-          <div className="profile"><h3>{personA.name}</h3><p>{resultData.characterA}</p></div>
-          <div className="profile"><h3>{personB.name}</h3><p>{resultData.characterB}</p></div>
+          <div className="profile"><h3>{personA.name}</h3><p>{resultData.lineA}</p></div>
+          <div className="profile"><h3>{personB.name}</h3><p>{resultData.lineB}</p></div>
         </div>
-        <div className="cc-box">
-          <div className="cc-grid">
-            <div>
-              <h4 className="ok">찰떡 케미 포인트</h4>
-              <ul>{resultData.chemistryPoints.map((pt,i)=><li key={i} className="ok">{pt}</li>)}</ul>
-            </div>
-            <div>
-              <h4 className="bad">아슬아슬 갈등 포인트</h4>
-              <ul>{resultData.conflictPoints.map((pt,i)=><li key={i} className="bad">{pt}</li>)}</ul>
-            </div>
-          </div>
+        <div className="cc-box" style={{textAlign:'center'}}>
+          <h4 style={{margin:'0 0 8px',fontSize:13,color:'var(--sub)'}}>사주 궁합</h4>
+          <p style={{margin:0,fontSize:16,fontWeight:600}}>{resultData.relationLine}</p>
+        </div>
+        <div className="cc-box" style={{textAlign:'center'}}>
+          <h4 style={{margin:'0 0 8px',fontSize:13,color:'var(--sub)'}}>AI 서사 설정</h4>
+          <p style={{margin:0,fontSize:15}}>{resultData.storySetting}</p>
         </div>
         <div className="story-box">
-          <p>"{resultData.story}"</p>
+          <p>{resultData.prologue}</p>
         </div>
         <div className="retry">
           <button onClick={()=>setStep('input')}>다시 생성하기</button>
