@@ -12,7 +12,7 @@
 }
 *{box-sizing:border-box;}
 html{touch-action:manipulation;}
-input{font-size:16px;}
+input, select{font-size:16px;}
 body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Pretendard','Segoe UI',sans-serif;}
 .screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:36px;width:100%;max-width:420px;}
@@ -20,8 +20,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,B
 h1{font-size:22px;font-weight:600;text-align:center;margin:0 0 6px;letter-spacing:-0.02em;}
 .sub{color:var(--sub);font-size:13px;text-align:center;margin:0 0 28px;}
 label{display:block;font-size:12px;color:var(--sub);margin-bottom:6px;}
-input{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;transition:border-color .15s;}
-input:focus{border-color:var(--accent);}
+input, select{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;transition:border-color .15s;}
+input:focus, select:focus{border-color:var(--accent);}
 .hint{font-size:11px;color:var(--sub);margin-top:8px;line-height:1.6;}
 a{color:var(--accent);text-decoration:none;}
 a:hover{text-decoration:underline;}
@@ -34,7 +34,7 @@ button.primary:hover{opacity:.85;}
 .person h3{font-size:14px;font-weight:600;color:var(--accent2);margin:0 0 14px;padding-bottom:10px;border-bottom:1px solid var(--border);}
 .person .field{margin-bottom:12px;}
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
-.row3 input{text-align:center;}
+.row3 input, .row3 select{text-align:center;}
 .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--accent2);animation:pulse 1.2s infinite ease-in-out;}
 @keyframes pulse{0%,100%{opacity:.3;transform:scale(.9);}50%{opacity:1;transform:scale(1.1);}}
@@ -51,16 +51,6 @@ button.primary:hover{opacity:.85;}
 .profile h3{font-size:15px;margin:0 0 10px;color:var(--text);}
 .profile p{font-size:13px;color:var(--sub);line-height:1.8;margin:0;white-space:pre-line;}
 .cc-box{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px;}
-.cc-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
-@media(max-width:640px){.cc-grid{grid-template-columns:1fr;}}
-.cc-grid h4{font-size:13px;font-weight:600;margin:0 0 12px;}
-.cc-grid h4.ok{color:var(--ok);}
-.cc-grid h4.bad{color:var(--bad);}
-.cc-grid ul{list-style:none;margin:0;padding:0;}
-.cc-grid li{font-size:13px;color:var(--sub);margin-bottom:8px;padding-left:16px;position:relative;}
-.cc-grid li:before{position:absolute;left:0;}
-.cc-grid li.ok:before{content:"✓";color:var(--ok);}
-.cc-grid li.bad:before{content:"·";color:var(--bad);}
 .story-box{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:32px 24px;text-align:center;}
 .story-box p{font-size:15px;line-height:1.9;color:var(--text);font-style:italic;margin:0;}
 .retry{display:flex;justify-content:center;margin-top:32px;}
@@ -76,95 +66,65 @@ button.primary:hover{opacity:.85;}
 <script type="text/babel">
 const {useState, useEffect} = React;
 
+// 🟢 사용자가 동적으로 입력한 값을 백엔드 API로 전달하는 함수
 const fetchSajuData = async (person, geminiKey) => {
+  // 생시 모름인 경우 0시로 기본 처리하되 숫자로 변환
+  const parsedHour = person.hourUnknown ? 0 : (parseInt(person.hour, 10) || 0);
+  const parsedMinute = parseInt(person.minute, 10) || 0;
+
+  const payload = {
+    year: Number(person.year),
+    month: Number(person.month),
+    day: Number(person.day),
+    hour: parsedHour,
+    minute: parsedMinute,
+    gender: person.gender,
+    calendar: person.calendar || "solar",
+    geminiKey: geminiKey,
+    question: `${person.name}의 사주 분석 및 기운 추출`
+  };
+
   const response = await fetch('https://saju-api-s6x0.onrender.com/saju', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      year: person.year,
-      month: person.month,
-      day: person.day,
-      hour: person.hourUnknown ? null : (parseInt(person.hour) || 0),
-      minute: parseInt(person.minute) || 0,
-      gender: person.gender,
-      calendar: person.calendar,
-      geminiKey: geminiKey,
-      question: `${person.name}의 사주를 분석해줘.`
-    })
+    body: JSON.stringify(payload)
   });
 
   if (!response.ok) {
     const text = await response.text();
-    console.log("SAJU ERROR:", text);
+    console.error("SAJU API ERROR:", text);
     if (response.status === 429) {
-      throw new Error('사주 서버 요청이 몰려 있어요. 잠시 후 다시 시도해주세요.');
+      throw new Error('사주 서버 요청 한도가 초과되었습니다. 잠시 후 다시 시도해주세요.');
     }
-    throw new Error(text);
+    if (response.status === 404) {
+      throw new Error('사주 분석 서버 경로(/saju)를 찾을 수 없습니다. (404 Error)');
+    }
+    throw new Error(`사주 서버 오류 (${response.status})`);
   }
+
   const data = await response.json();
-  if (!data.success) throw new Error('사주 계산에 실패했습니다.');
+  if (!data.success) {
+    throw new Error(data.message || '사주 계산에 실패했습니다.');
+  }
   return data.result;
 };
 
 const TRIVIA = [
-"바나나는 엄밀히 말하면 '베리(berry)'에 속합니다.","문어는 심장이 세 개입니다.","꿀은 거의 상하지 않는 식품입니다.",
-"상어는 나무보다 오래전부터 지구에 살았습니다.","코알라는 사람마다 지문처럼 코무늬가 모두 다릅니다.",
-"체스의 가능한 경우의 수는 우주의 원자 수보다 많다고 알려져 있습니다.","낙지는 심장이 세 개, 뇌는 하나지만 신경절은 여러 개입니다.",
-"지구에서는 매일 약 8백만 번의 번개가 발생합니다.","감자는 전자레인지에 그냥 넣으면 폭발할 수도 있습니다.",
-"북극곰의 피부는 검은색입니다.","인간은 평생 침을 약 2만 리터 정도 만듭니다.","오렌지는 야생에서 자연적으로 존재하는 과일이 아니라 교배종입니다.",
-"고양이는 단맛을 거의 느끼지 못합니다.","플라밍고는 먹이에 따라 깃털 색이 달라집니다.","우주에서는 울음소리가 전달되지 않습니다.",
-"달에서는 발자국이 수백만 년 동안 남을 수도 있습니다.","번개는 태양보다 순간적으로 더 뜨거운 온도를 낼 수 있습니다.",
-"토마토는 식물학적으로는 과일입니다.","사람의 위산은 면도날도 녹일 정도로 강한 산성을 가지고 있습니다.","새우의 심장은 머리에 있습니다.",
-"물은 조건에 따라 소리 없이 끓을 수도 있습니다.","개미는 잠을 자지 않고 짧게 여러 번 휴식을 취합니다.",
-"펭귄은 청혼할 때 조약돌을 선물하는 종이 있습니다.","기린의 목뼈 개수는 사람과 똑같이 7개입니다.",
-"거울 속 자신을 알아보는 동물은 매우 드뭅니다.","벌은 사람 얼굴을 구분해서 기억할 수 있습니다.",
-"소는 친한 친구와 떨어지면 스트레스를 받습니다.","문어는 색맹이지만 피부로 빛을 감지할 수 있습니다.",
-"인간의 뇌는 몸무게의 2%지만 에너지의 20%를 씁니다.","심장은 하루에 약 10만 번 뜁니다.",
-"손톱은 발톱보다 빨리 자랍니다.","재채기 속도는 시속 160km에 달할 수 있습니다.","눈은 태어날 때부터 크기가 거의 변하지 않습니다.",
-"하마는 땀 대신 붉은 액체를 분비해 피부를 보호합니다.","코끼리는 발바닥으로 진동을 느껴 멀리 있는 소리를 감지합니다.",
-"박쥐는 조류가 아니라 유일하게 나는 포유류입니다.","달팽이는 최대 4년까지 잠을 잘 수 있습니다.",
-"별똥별의 대부분은 모래알 크기입니다.","금성의 하루는 금성의 1년보다 깁니다.","토성은 물보다 밀도가 낮아 물에 뜰 수 있습니다.",
-"목성의 대적점 폭풍은 수백 년째 계속되고 있습니다.","은하수에는 태양 같은 별이 약 천억 개 이상 있습니다.",
-"우주는 소리가 없어 완전한 침묵입니다.","화성의 노을은 파란색입니다.","달은 지구에서 매년 약 3.8cm씩 멀어지고 있습니다.",
-"사람의 몸에는 약 37조 개의 세포가 있습니다.","뼈는 강철보다 무게 대비 강도가 더 강합니다.",
-"인간은 하품이 전염되는 몇 안 되는 동물 중 하나입니다.","혀의 지문처럼 사람마다 혀의 모양도 다릅니다.",
-"눈을 뜨고 재채기하는 것은 거의 불가능합니다.","피는 정맥에서 파란빛이 아니라 항상 붉은색입니다.",
-"평균적으로 사람은 하루에 약 5리터의 공기를 마십니다.","웃음은 근육 약 15개를 사용합니다.","키는 아침이 저녁보다 조금 더 큽니다.",
-"에펠탑은 여름에 더위로 인해 약간 더 커집니다.","꿀벌은 자신의 체중보다 무거운 짐을 나를 수 있습니다.",
-"바다의 약 80%는 아직 탐사되지 않았습니다.","심해에는 스스로 빛을 내는 생물이 많습니다.",
-"오로라는 지구 자기장과 태양풍이 만나 생깁니다.","무지개는 사실 완전한 원 모양입니다.","비 오는 날 냄새는 실제 화학물질 이름이 있습니다(지오스민).",
-"사막에서도 눈이 내리는 경우가 있습니다.","가장 큰 사막은 사하라가 아니라 남극입니다.",
-"세계에서 가장 오래된 나무는 4800년이 넘습니다.","대나무는 하루에 90cm까지 자랄 수 있습니다.",
-"장미는 실제로 사과와 같은 식물과에 속합니다.","해바라기는 어릴 때 태양을 따라 움직입니다.",
-"초콜릿은 원래 음료로 먼저 마셔졌습니다.","아이스크림콘은 우연히 즉석에서 발명됐다는 설이 있습니다.",
-"커피는 원래 씹어 먹는 열매로 시작됐습니다.","치즈는 만드는 데 몇 년이 걸리는 종류도 있습니다.",
-"땅콩은 견과류가 아니라 콩과 식물입니다.","꿀은 벌이 게워낸 것을 발효시켜 만듭니다.",
-"세상에서 가장 매운 고추는 캡사이신 농도가 순수 것보다 강합니다.","전자레인지는 원래 레이더 연구 중 우연히 발명됐습니다.",
-"신용카드는 원래 종이로 시작된 아이디어였습니다.","최초의 컴퓨터 버그는 실제로 벌레(나방) 때문이었습니다.",
-"인터넷 최초의 이메일은 컴퓨터 같은 방에서 보내졌습니다.","QWERTY 자판은 타자기 고장을 줄이기 위해 만들어졌습니다.",
-"우산은 원래 비보다 햇빛을 가리기 위해 먼저 쓰였습니다.","지퍼는 초기에는 신발에 먼저 사용됐습니다.",
-"세계 최초의 영화는 1분도 되지 않는 길이였습니다.","포스트잇은 실패한 접착제 연구에서 탄생했습니다.",
-"바코드는 처음엔 원형으로 디자인됐습니다.","연필심에는 사실 납이 전혀 들어있지 않습니다.",
-"동전 던지기는 완전히 50대 50이 아니라고 알려져 있습니다.","시계 방향은 해시계의 그림자 방향에서 유래했습니다.",
-"엘리베이터의 '닫힘' 버튼은 실제로 작동하지 않는 경우가 많습니다.","비행기 창문이 둥근 이유는 압력 분산 때문입니다.",
-"신호등의 빨강이 정지인 이유는 위험을 뜻하는 색이기 때문입니다.","지문은 태아일 때부터 이미 형성됩니다.",
-"딸기는 씨가 안이 아니라 겉에 있는 몇 안 되는 과일입니다.","사과는 물에 뜨는데, 이는 25%가 공기이기 때문입니다.",
-"레몬은 오렌지보다 당분이 더 많이 들어있는 경우가 있습니다.","수박은 야채로 분류되기도 합니다.",
-"소금은 인류 역사상 화폐로 쓰인 적이 있습니다.","후추는 한때 금만큼 귀한 향신료였습니다.",
-"아보카도는 나무 열매지만 식물학적으로는 큰 씨를 가진 베리입니다.","오이는 수분이 96% 이상으로 대부분 물입니다.",
-"참치는 멈추면 숨을 쉴 수 없어 계속 헤엄쳐야 합니다.","해파리는 뇌가 없어도 신경망으로 반응합니다.",
-"불가사리는 팔이 잘려도 다시 자라날 수 있습니다.","고래상어는 상어 중 가장 크지만 온순한 편입니다.",
-"돌고래는 이름을 부르듯 서로를 구별하는 소리를 씁니다.","캥거루는 뒤로 걷지 못합니다.",
-"카멜레온은 감정과 온도에 따라서도 색이 변합니다.","달팽이는 한 번에 최대 2만 개의 이빨을 가질 수 있습니다.",
-"거미줄은 강철보다 인장강도가 높습니다.","나비는 발로 맛을 봅니다."
+  "바나나는 엄밀히 말하면 '베리(berry)'에 속합니다.","문어는 심장이 세 개입니다.","꿀은 거의 상하지 않는 식품입니다.",
+  "상어는 나무보다 오래전부터 지구에 살았습니다.","코알라는 사람마다 지문처럼 코무늬가 모두 다릅니다.",
+  "체스의 가능한 경우의 수는 우주의 원자 수보다 많다고 알려져 있습니다.",
+  "달에서는 발자국이 수백만 년 동안 남을 수도 있습니다.","화성의 노을은 파란색입니다."
 ];
 
 function App(){
   const [step, setStep] = useState('setup');
   const [apiKey, setApiKey] = useState('');
   const [error, setError] = useState('');
+  
+  // 고정값 없이 사용자가 입력 화면에서 조절 가능한 기본 State
   const [personA, setPersonA] = useState({ name:'나', year:1995, month:5, day:15, hour:'', hourUnknown:false, minute:0, gender:'male', calendar:'solar' });
   const [personB, setPersonB] = useState({ name:'최애', year:1994, month:9, day:12, hour:'', hourUnknown:false, minute:0, gender:'female', calendar:'solar' });
+  
   const [resultData, setResultData] = useState(null);
   const [triviaIdx, setTriviaIdx] = useState(0);
 
@@ -192,6 +152,7 @@ function App(){
     setError('');
     let sajuData;
     try {
+      // 동적으로 동기화된 A와 B의 데이터를 가져옵니다.
       const sajuA = await fetchSajuData(personA, apiKey);
       const sajuB = await fetchSajuData(personB, apiKey);
       sajuData = { personA: sajuA, personB: sajuB };
@@ -206,16 +167,8 @@ function App(){
     const randomTrope = tropes[Math.floor(Math.random() * tropes.length)];
 
     const systemPrompt = `당신은 실제로 사주를 오래 봐온 사람처럼 말하는 사주 해설가이자, 동시에 그 사주를 소재로 웹소설 세계관을 창작하는 작가입니다.
-    말투는 "은근 이런 타입입니다", "생각보다 고집이 꽤 있는 편이에요", "이 부분은 좀 인정해야 합니다"처럼 친근하고 팩폭 섞인 구어체를 씁니다. 딱딱한 설명체나 AI스러운 문장은 금지합니다.
-    개인 사주 해설은 일간/월지/일지/오행의 강약과 과부족 기운을 실제로 짚어가며, 그 사람만의 개성이 느껴지도록 구체적으로 씁니다.
-    궁합은 좋은 말만 하지 말고 장점과 단점을 솔직하게, 직설적으로 씁니다.
-    세계관과 역할은 반드시 각 인물의 실제 오행 강약 분석 결과를 근거로 선택합니다(예: 리더십형→지휘관·황제·길드장, 분석형→연구원·해커·의사, 자유분방형→용병·정보상·여행가, 정의감형→형사·기사·경찰, 표현형→배우·아이돌·화가). 단순 랜덤 조합처럼 보이지 않게, 사용자가 "내 사주라서 이 역할이 나왔구나"를 느끼도록 합니다. storySetting 문장 안에는 A와 B의 이름을 각 역할과 함께 명시해 누가 어떤 역할인지 명확히 드러냅니다.
-    세계관은 특수 세계관(판타지, 헌터, 사이버펑크, 디스토피아, SF, 무협, 오메가버스, 궁정 등)과 현실적 배경(대학, 오피스, 동네 일상, 연예계, 스포츠, 의료, 자영업, 예술, 공무원, 서비스업 등)을 절반씩 비슷한 비중으로 다양하게 사용합니다. 매번 전혀 다른 분위기가 나오도록 하되 반복은 피합니다.
-    아래 [사주 API 결과] JSON에는 이미 계산된 사주 데이터(사주 원국, 오행, 대운, 십신 강약 등)가 모두 들어 있습니다. 당신은 오행이나 사주를 직접 계산하거나 추측하지 말고, 반드시 이 JSON 데이터에 나온 값만 근거로 해석하세요. JSON에 없는 정보는 지어내지 마세요.
-    compatibilityScore(0~100)는 JSON에 포함된 오행/십신 데이터를 근거로 당신이 직접 산출하되, 그 근거를 scoreReason에 반드시 명시하세요.
-    storySetting은 문장이 아니라 웹소설 소개 태그처럼 짧고 강하게 끊어서 씁니다("~입니다","~서사입니다" 같은 서술형 종결 금지, 예: "디스토피아 세계의 조직원과 의사, 생존기").
-    프롤로그는 설정 설명이 아니라 이미 이야기가 한창 진행 중인 하이라이트 장면(대치, 고백 직전, 구출, 첫 키스 직전, 진실 폭로 등) 하나를 대사와 행동, 긴장감 중심으로 생생하게 씁니다.
-    매우 중요: 모든 결과 텍스트(lineA, lineB, relationLine, scoreReason, storySetting, prologue 포함)에서 "그", "그녀", "남성", "여성", "남자", "여자" 등 성별을 특정하는 표현을 절대 사용하지 마세요. 대신 "상대", "이 사람", "두 사람", "서로", "한쪽", "다른 한쪽" 같은 성별 중립 표현만 사용하세요. 인물을 지칭할 때는 이름(캐릭터 A/B의 이름)을 반복 사용하거나 중립 표현을 쓰세요.
+    말투는 "은근 이런 타입입니다", "생각보다 고집이 꽤 있는 편이에요", "이 부분은 좀 인정해야 합니다"처럼 친근하고 팩폭 섞인 구어체를 씁니다.
+    아래 [사주 API 결과] JSON 데이터만 근거로 해석하세요.
     결과는 반드시 제공된 JSON 스키마에 맞게 출력해야 합니다.`;
 
     const userPrompt = `
@@ -223,16 +176,15 @@ function App(){
       캐릭터 A 이름: ${personA.name}
       캐릭터 B 이름: ${personB.name}
       ${JSON.stringify(sajuData)}
-      위 데이터만 근거로 해석하세요. 오행이나 사주를 다시 계산하거나 추측하지 마세요.
-
-      다음을 작성해주세요 (성별을 특정하는 표현 없이, "상대/이 사람/두 사람/서로/한쪽/다른 한쪽" 또는 이름으로만 지칭):
-      1. lineA: A(personA)의 사주 풀이 3~4문장. JSON의 personA 데이터(오행, 십신 강약 등)에 나온 강약과 과부족 기운을 실제 성향으로 풀어 사주 용어(일간/월지/일지 느낌)를 자연스럽게 섞어 친근한 구어체로. 기계적 설명 금지, 팩폭 톤 포함.
-      2. lineB: B(personB)도 같은 방식으로 JSON의 personB 데이터를 근거로 3~4문장.
-      3. relationLine: JSON에 담긴 두 사람의 오행 데이터를 비교해 궁합을 직설적이고 솔직하게 2~3문장. 장점과 단점 모두 언급. "와 맞는데?" 싶게 구체적으로.
-      4. compatibilityScore: JSON 데이터를 근거로 직접 산출한 0~100 사이의 궁합 점수.
-      5. scoreReason: compatibilityScore가 나온 이유를 JSON에 나온 오행 상생/상극 관점에서 1~2문장으로 설명.
-      5-1. storySetting: 먼저 JSON에 나온 A, B 각각의 오행/성향 데이터를 반영해 역할을 정하세요(리더십형→지휘관·황제·길드장, 분석형→연구원·해커·의사, 자유분방형→용병·정보상·여행가, 정의감형→형사·기사·경찰, 표현형→배우·아이돌·화가 등). 세계관은 특수 세계관과 현실적 배경(대학,오피스,동네일상,연예계,스포츠,의료,자영업,예술,공무원,서비스업 등)을 절반씩 균형 있게 다양하게 선택하세요. "${personA.name}(A의 역할)"과 "${personB.name}(B의 역할)"이 문장 안에서 각각 누구인지 명확히 드러나도록 웹소설 소개 태그 형태로 작성하세요(예: "대학 캠퍼스, 사진학과 학생 ${personA.name}과 모델 ${personB.name}의 첫사랑" 또는 "사이버펑크 도시, 무허가 해커 ${personA.name}과 치안 유지국 수사관 ${personB.name}의 추격전"). 서술형 종결("~입니다") 금지, 짧고 임팩트 있게. 분위기 참고: '${randomTrope}'. 성별 특정 표현 금지.
-      6. prologue: storySetting 그대로 반영, 약 600자, 설명 없이 이야기가 한창 진행 중인 하이라이트 장면 하나(대사/행동/긴장감 중심)로. 성별 특정 표현(그/그녀/남자/여자 등) 금지, 이름으로만 지칭.
+      
+      위 데이터만 근거로 해석하세요:
+      1. lineA: A(${personA.name})의 사주 풀이 3~4문장.
+      2. lineB: B(${personB.name})의 사주 풀이 3~4문장.
+      3. relationLine: 두 사람의 궁합 직설적 2~3문장.
+      4. compatibilityScore: 0~100 점수.
+      5. scoreReason: 점수 이유 1~2문장.
+      5-1. storySetting: '${randomTrope}' 분위기의 웹소설 소개 태그 형태.
+      6. prologue: 이야기의 한창 진행 중인 하이라이트 장면 (약 600자).
     `;
 
     const payload = {
@@ -257,12 +209,12 @@ function App(){
     };
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify(payload)
       });
-      if (!response.ok) throw new Error('API 호출에 실패했습니다. 키가 유효한지, 무료 한도를 초과하지 않았는지 확인해주세요.');
+      if (!response.ok) throw new Error('Gemini API 호출 실패. 키가 유효한지 확인해주세요.');
       const result = await response.json();
       if (result.candidates && result.candidates.length > 0) {
         const jsonText = result.candidates[0].content.parts[0].text;
@@ -307,6 +259,7 @@ function App(){
           <h1>운명의 실타래 엮기</h1>
           <p className="sub">두 사람의 생년월일을 입력해 서사를 생성해보세요.</p>
           <div className="grid2">
+            {/* 캐릭터 A 입력폼 */}
             <div className="person">
               <h3>캐릭터 A (나)</h3>
               <div className="field">
@@ -314,9 +267,9 @@ function App(){
                 <input type="text" value={personA.name} onChange={e=>setPersonA({...personA, name:e.target.value})} />
               </div>
               <div className="row3">
-                <div><label>년(YYYY)</label><input type="number" value={personA.year} onChange={e=>setPersonA({...personA, year:parseInt(e.target.value)||0})} /></div>
-                <div><label>월(MM)</label><input type="number" min="1" max="12" value={personA.month} onChange={e=>setPersonA({...personA, month:parseInt(e.target.value)||1})} /></div>
-                <div><label>일(DD)</label><input type="number" min="1" max="31" value={personA.day} onChange={e=>setPersonA({...personA, day:parseInt(e.target.value)||1})} /></div>
+                <div><label>년(YYYY)</label><input type="number" value={personA.year} onChange={e=>setPersonA({...personA, year:e.target.value})} /></div>
+                <div><label>월(MM)</label><input type="number" min="1" max="12" value={personA.month} onChange={e=>setPersonA({...personA, month:e.target.value})} /></div>
+                <div><label>일(DD)</label><input type="number" min="1" max="31" value={personA.day} onChange={e=>setPersonA({...personA, day:e.target.value})} /></div>
               </div>
               <div className="field" style={{marginTop:12}}>
                 <label>생시(시간)</label>
@@ -326,7 +279,7 @@ function App(){
                 </label>
               </div>
               <div className="row3" style={{marginTop:12}}>
-                <div><label>분(MM)</label><input type="number" min="0" max="59" value={personA.minute} onChange={e=>setPersonA({...personA, minute:parseInt(e.target.value)||0})} /></div>
+                <div><label>분(MM)</label><input type="number" min="0" max="59" value={personA.minute} onChange={e=>setPersonA({...personA, minute:e.target.value})} /></div>
                 <div><label>성별</label>
                   <select value={personA.gender} onChange={e=>setPersonA({...personA, gender:e.target.value})}>
                     <option value="male">남</option>
@@ -341,6 +294,8 @@ function App(){
                 </div>
               </div>
             </div>
+
+            {/* 캐릭터 B 입력폼 */}
             <div className="person">
               <h3>캐릭터 B (상대방)</h3>
               <div className="field">
@@ -348,9 +303,9 @@ function App(){
                 <input type="text" value={personB.name} onChange={e=>setPersonB({...personB, name:e.target.value})} />
               </div>
               <div className="row3">
-                <div><label>년(YYYY)</label><input type="number" value={personB.year} onChange={e=>setPersonB({...personB, year:parseInt(e.target.value)||0})} /></div>
-                <div><label>월(MM)</label><input type="number" min="1" max="12" value={personB.month} onChange={e=>setPersonB({...personB, month:parseInt(e.target.value)||1})} /></div>
-                <div><label>일(DD)</label><input type="number" min="1" max="31" value={personB.day} onChange={e=>setPersonB({...personB, day:parseInt(e.target.value)||1})} /></div>
+                <div><label>년(YYYY)</label><input type="number" value={personB.year} onChange={e=>setPersonB({...personB, year:e.target.value})} /></div>
+                <div><label>월(MM)</label><input type="number" min="1" max="12" value={personB.month} onChange={e=>setPersonB({...personB, month:e.target.value})} /></div>
+                <div><label>일(DD)</label><input type="number" min="1" max="31" value={personB.day} onChange={e=>setPersonB({...personB, day:e.target.value})} /></div>
               </div>
               <div className="field" style={{marginTop:12}}>
                 <label>생시(시간)</label>
@@ -360,7 +315,7 @@ function App(){
                 </label>
               </div>
               <div className="row3" style={{marginTop:12}}>
-                <div><label>분(MM)</label><input type="number" min="0" max="59" value={personB.minute} onChange={e=>setPersonB({...personB, minute:parseInt(e.target.value)||0})} /></div>
+                <div><label>분(MM)</label><input type="number" min="0" max="59" value={personB.minute} onChange={e=>setPersonB({...personB, minute:e.target.value})} /></div>
                 <div><label>성별</label>
                   <select value={personB.gender} onChange={e=>setPersonB({...personB, gender:e.target.value})}>
                     <option value="male">남</option>
