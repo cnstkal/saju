@@ -97,11 +97,13 @@ const fetchSajuData = async (person) => {
     })
   });
 
-if (!response.ok) {
-  const text = await response.text();
-  console.log("SAZU ERROR:", text);
-  throw new Error(text);
-}
+  if (!response.ok) {
+    const text = await response.text();
+    console.log("SAZU ERROR:", text);
+    throw new Error(text);
+  }
+  return await response.json();
+};
 
 const TRIVIA = [
 "바나나는 엄밀히 말하면 '베리(berry)'에 속합니다.","문어는 심장이 세 개입니다.","꿀은 거의 상하지 않는 식품입니다.",
