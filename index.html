@@ -96,8 +96,10 @@ const fetchSajuData = async (person) => {
       modules: ["fourPillars","elements","summary","tables","decadeFortune","sinStrength"]
     })
   });
-  if (!response.ok) throw new Error('SAZU API 호출에 실패했습니다.');
-  return await response.json();
+  if (!response.ok) {
+  const text = await response.text();
+  console.log(text);
+  throw new Error(text);
 };
 
 const TRIVIA = [
