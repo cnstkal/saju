@@ -76,53 +76,29 @@ button.primary:hover{opacity:.85;}
 <script type="text/babel">
 const {useState, useEffect} = React;
 
-const calculateElements = (year, month, day) => {
-  const elements = { 목: 0, 화: 0, 토: 0, 금: 0, 수: 0 };
-  const stems = ["금","금","수","수","목","목","화","화","토","토"];
-  const branches = ["금","금","토","수","수","토","목","목","토","화","화","토"];
-  const monthBranches = [null,"토","목","목","토","화","화","토","금","금","토","수","수"];
-  elements[stems[year % 10]]++;
-  elements[branches[year % 12]]++;
-  elements[monthBranches[month]]++;
-  elements[stems[day % 10]]++;
-  elements[branches[day % 12]]++;
-  return elements;
-};
+const SAZU_API_KEY = "sazu_free_72ad7194ee7dcef97843d39652a9d8b323d23b53172562399bff24751c842198";
 
-// 오행 상생 관계 (a가 b를 생함)
-const GENERATES = { 목:'화', 화:'토', 토:'금', 금:'수', 수:'목' };
-// 오행 상극 관계 (a가 b를 극함)
-const CONTROLS = { 목:'토', 화:'금', 토:'수', 금:'목', 수:'화' };
-
-// 두 사람의 오행 분포를 바탕으로 결정론적 궁합 점수(0~100) 계산
-const calculateCompatibilityScore = (elementsA, elementsB) => {
-  const keys = ['목','화','토','금','수'];
-  let score = 60;
-  keys.forEach(k => {
-    const a = elementsA[k], b = elementsB[k];
-    if (GENERATES[k] && elementsB[GENERATES[k]]) score += a * elementsB[GENERATES[k]] * 2;
-    if (CONTROLS[k] && elementsB[CONTROLS[k]]) score -= a * elementsB[CONTROLS[k]] * 1.5;
-    score += Math.min(a, b) * 1.5; // 공유 기운 보너스
+const fetchSajuData = async (person) => {
+  const response = await fetch('https://api.sazu.app/v1/sazu/calculate', {
+    method: 'POST',
+    headers: {
+      'x-api-key': SAZU_API_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      birthYear: person.year,
+      birthMonth: person.month,
+      birthDay: person.day,
+      birthHour: person.hourUnknown ? null : parseInt(person.hour) || 0,
+      birthMinute: person.minute || 0,
+      isFemale: !!person.isFemale,
+      isLunar: !!person.isLunar,
+      modules: ["fourPillars","elements","summary","tables","decadeFortune","sinStrength"]
+    })
   });
-  // 오행 다양성(치우치지 않을수록 가점)
-  const spreadA = keys.filter(k => elementsA[k] > 0).length;
-  const spreadB = keys.filter(k => elementsB[k] > 0).length;
-  score += (spreadA + spreadB) * 1.2;
-  score = Math.round(score);
-  if (score < 45) score = 45 + (score % 10);
-  if (score > 98) score = 98;
-  return Math.max(45, Math.min(98, score));
+  if (!response.ok) throw new Error('SAZU API 호출에 실패했습니다.');
+  return await response.json();
 };
-
-// 오행 강약을 바탕으로 성향 카테고리를 결정론적으로 도출
-const deriveTrait = (elements) => {
-  const dominant = Object.entries(elements).sort((a,b)=>b[1]-a[1])[0][0];
-  const traitMap = {
-    목: '리더십/추진형', 화: '표현/열정형', 토: '안정/포용형', 금: '분석/원칙형', 수: '자유/직관형'
-  };
-  return traitMap[dominant];
-};
-
 
 const TRIVIA = [
 "바나나는 엄밀히 말하면 '베리(berry)'에 속합니다.","문어는 심장이 세 개입니다.","꿀은 거의 상하지 않는 식품입니다.",
@@ -208,16 +184,19 @@ function App(){
   const generateCPStory = async () => {
     setStep('loading');
     setError('');
-    const elementsA = calculateElements(personA.year, personA.month, personA.day);
-    const elementsB = calculateElements(personB.year, personB.month, personB.day);
-    const fixedScore = calculateCompatibilityScore(elementsA, elementsB);
-    const traitA = deriveTrait(elementsA);
-    const traitB = deriveTrait(elementsB);
+    let sajuData;
+    try {
+      const [sajuA, sajuB] = await Promise.all([fetchSajuData(personA), fetchSajuData(personB)]);
+      sajuData = { personA: sajuA, personB: sajuB };
+    } catch (err) {
+      console.error(err);
+      setError(err.message || '사주 데이터를 가져오는 중 오류가 발생했습니다.');
+      setStep('input');
+      return;
+    }
+
     const tropes = ["혐관에서 찐사랑","소꿉친구에서 연인","햇살캐와 츤데레","계략공과 눈치제로수","운명적인 첫눈에 반함","티격태격 배틀호모","쌍방구원 서사"];
     const randomTrope = tropes[Math.floor(Math.random() * tropes.length)];
-
-    const hourTextA = personA.hourUnknown ? '생시 모름 (연/월/일 기운 위주로만 해석)' : `${personA.hour}시`;
-    const hourTextB = personB.hourUnknown ? '생시 모름 (연/월/일 기운 위주로만 해석)' : `${personB.hour}시`;
 
     const systemPrompt = `당신은 실제로 사주를 오래 봐온 사람처럼 말하는 사주 해설가이자, 동시에 그 사주를 소재로 웹소설 세계관을 창작하는 작가입니다.
     말투는 "은근 이런 타입입니다", "생각보다 고집이 꽤 있는 편이에요", "이 부분은 좀 인정해야 합니다"처럼 친근하고 팩폭 섞인 구어체를 씁니다. 딱딱한 설명체나 AI스러운 문장은 금지합니다.
@@ -225,23 +204,27 @@ function App(){
     궁합은 좋은 말만 하지 말고 장점과 단점을 솔직하게, 직설적으로 씁니다.
     세계관과 역할은 반드시 각 인물의 실제 오행 강약 분석 결과를 근거로 선택합니다(예: 리더십형→지휘관·황제·길드장, 분석형→연구원·해커·의사, 자유분방형→용병·정보상·여행가, 정의감형→형사·기사·경찰, 표현형→배우·아이돌·화가). 단순 랜덤 조합처럼 보이지 않게, 사용자가 "내 사주라서 이 역할이 나왔구나"를 느끼도록 합니다. storySetting 문장 안에는 A와 B의 이름을 각 역할과 함께 명시해 누가 어떤 역할인지 명확히 드러냅니다.
     세계관은 특수 세계관(판타지, 헌터, 사이버펑크, 디스토피아, SF, 무협, 오메가버스, 궁정 등)과 현실적 배경(대학, 오피스, 동네 일상, 연예계, 스포츠, 의료, 자영업, 예술, 공무원, 서비스업 등)을 절반씩 비슷한 비중으로 다양하게 사용합니다. 매번 전혀 다른 분위기가 나오도록 하되 반복은 피합니다.
-    궁합 점수(compatibilityScore)는 이미 계산되어 주어집니다. 이 값을 그대로 그대로 사용하고 절대 임의로 바꾸지 마세요. scoreReason은 주어진 점수에 맞춰서만 작성하세요.
+    아래 [사주 API 결과] JSON에는 이미 계산된 사주 데이터(사주 원국, 오행, 대운, 십신 강약 등)가 모두 들어 있습니다. 당신은 오행이나 사주를 직접 계산하거나 추측하지 말고, 반드시 이 JSON 데이터에 나온 값만 근거로 해석하세요. JSON에 없는 정보는 지어내지 마세요.
+    compatibilityScore(0~100)는 JSON에 포함된 오행/십신 데이터를 근거로 당신이 직접 산출하되, 그 근거를 scoreReason에 반드시 명시하세요.
     storySetting은 문장이 아니라 웹소설 소개 태그처럼 짧고 강하게 끊어서 씁니다("~입니다","~서사입니다" 같은 서술형 종결 금지, 예: "디스토피아 세계의 조직원과 의사, 생존기").
     프롤로그는 설정 설명이 아니라 이미 이야기가 한창 진행 중인 하이라이트 장면(대치, 고백 직전, 구출, 첫 키스 직전, 진실 폭로 등) 하나를 대사와 행동, 긴장감 중심으로 생생하게 씁니다.
     매우 중요: 모든 결과 텍스트(lineA, lineB, relationLine, scoreReason, storySetting, prologue 포함)에서 "그", "그녀", "남성", "여성", "남자", "여자" 등 성별을 특정하는 표현을 절대 사용하지 마세요. 대신 "상대", "이 사람", "두 사람", "서로", "한쪽", "다른 한쪽" 같은 성별 중립 표현만 사용하세요. 인물을 지칭할 때는 이름(캐릭터 A/B의 이름)을 반복 사용하거나 중립 표현을 쓰세요.
     결과는 반드시 제공된 JSON 스키마에 맞게 출력해야 합니다.`;
 
     const userPrompt = `
-      [캐릭터 A (${personA.name})] 오행: 목${elementsA.목} 화${elementsA.화} 토${elementsA.토} 금${elementsA.금} 수${elementsA.수} / 생시: ${hourTextA} / 분석된 성향: ${traitA}
-      [캐릭터 B (${personB.name})] 오행: 목${elementsB.목} 화${elementsB.화} 토${elementsB.토} 금${elementsB.금} 수${elementsB.수} / 생시: ${hourTextB} / 분석된 성향: ${traitB}
-      [계산된 궁합 점수 (고정값, 절대 변경 금지)]: ${fixedScore}
+      아래는 사주 API 결과입니다.
+      캐릭터 A 이름: ${personA.name}
+      캐릭터 B 이름: ${personB.name}
+      ${JSON.stringify(sajuData)}
+      위 데이터만 근거로 해석하세요. 오행이나 사주를 다시 계산하거나 추측하지 마세요.
 
       다음을 작성해주세요 (성별을 특정하는 표현 없이, "상대/이 사람/두 사람/서로/한쪽/다른 한쪽" 또는 이름으로만 지칭):
-      1. lineA: A의 사주 풀이 3~4문장. 위에 주어진 분석된 성향(${traitA})과 오행의 강약, 부족하거나 넘치는 기운을 실제 성향으로 풀어 사주 용어(일간/월지/일지 느낌)를 자연스럽게 섞어 친근한 구어체로. 기계적 설명 금지, 팩폭 톤 포함.
-      2. lineB: B도 같은 방식으로 3~4문장 (분석된 성향: ${traitB}).
-      3. relationLine: 두 사람 궁합을 직설적이고 솔직하게 2~3문장. 장점과 단점 모두 언급. "와 맞는데?" 싶게 구체적으로.
-      4. scoreReason: 위에 주어진 고정 궁합 점수 ${fixedScore}점이 나온 이유를 오행 상생/상극 관점에서 1~2문장으로 설명. 점수 자체는 절대 다시 언급하거나 다른 숫자로 바꾸지 말 것.
-      5. storySetting: 먼저 A는 ${traitA}, B는 ${traitB} 성향임을 반영해 역할을 정하세요(리더십형→지휘관·황제·길드장, 분석형→연구원·해커·의사, 자유분방형→용병·정보상·여행가, 정의감형→형사·기사·경찰, 표현형→배우·아이돌·화가 등). 세계관은 특수 세계관과 현실적 배경(대학,오피스,동네일상,연예계,스포츠,의료,자영업,예술,공무원,서비스업 등)을 절반씩 균형 있게 다양하게 선택하세요. "${personA.name}(A의 역할)"과 "${personB.name}(B의 역할)"이 문장 안에서 각각 누구인지 명확히 드러나도록 웹소설 소개 태그 형태로 작성하세요(예: "대학 캠퍼스, 사진학과 학생 ${personA.name}과 모델 ${personB.name}의 첫사랑" 또는 "사이버펑크 도시, 무허가 해커 ${personA.name}과 치안 유지국 수사관 ${personB.name}의 추격전"). 서술형 종결("~입니다") 금지, 짧고 임팩트 있게. 분위기 참고: '${randomTrope}'. 성별 특정 표현 금지.
+      1. lineA: A(personA)의 사주 풀이 3~4문장. JSON의 personA 데이터(오행, 십신 강약 등)에 나온 강약과 과부족 기운을 실제 성향으로 풀어 사주 용어(일간/월지/일지 느낌)를 자연스럽게 섞어 친근한 구어체로. 기계적 설명 금지, 팩폭 톤 포함.
+      2. lineB: B(personB)도 같은 방식으로 JSON의 personB 데이터를 근거로 3~4문장.
+      3. relationLine: JSON에 담긴 두 사람의 오행 데이터를 비교해 궁합을 직설적이고 솔직하게 2~3문장. 장점과 단점 모두 언급. "와 맞는데?" 싶게 구체적으로.
+      4. compatibilityScore: JSON 데이터를 근거로 직접 산출한 0~100 사이의 궁합 점수.
+      5. scoreReason: compatibilityScore가 나온 이유를 JSON에 나온 오행 상생/상극 관점에서 1~2문장으로 설명.
+      5-1. storySetting: 먼저 JSON에 나온 A, B 각각의 오행/성향 데이터를 반영해 역할을 정하세요(리더십형→지휘관·황제·길드장, 분석형→연구원·해커·의사, 자유분방형→용병·정보상·여행가, 정의감형→형사·기사·경찰, 표현형→배우·아이돌·화가 등). 세계관은 특수 세계관과 현실적 배경(대학,오피스,동네일상,연예계,스포츠,의료,자영업,예술,공무원,서비스업 등)을 절반씩 균형 있게 다양하게 선택하세요. "${personA.name}(A의 역할)"과 "${personB.name}(B의 역할)"이 문장 안에서 각각 누구인지 명확히 드러나도록 웹소설 소개 태그 형태로 작성하세요(예: "대학 캠퍼스, 사진학과 학생 ${personA.name}과 모델 ${personB.name}의 첫사랑" 또는 "사이버펑크 도시, 무허가 해커 ${personA.name}과 치안 유지국 수사관 ${personB.name}의 추격전"). 서술형 종결("~입니다") 금지, 짧고 임팩트 있게. 분위기 참고: '${randomTrope}'. 성별 특정 표현 금지.
       6. prologue: storySetting 그대로 반영, 약 600자, 설명 없이 이야기가 한창 진행 중인 하이라이트 장면 하나(대사/행동/긴장감 중심)로. 성별 특정 표현(그/그녀/남자/여자 등) 금지, 이름으로만 지칭.
     `;
 
@@ -256,11 +239,12 @@ function App(){
             lineA:{ type:"STRING" },
             lineB:{ type:"STRING" },
             relationLine:{ type:"STRING" },
+            compatibilityScore:{ type:"NUMBER" },
             scoreReason:{ type:"STRING" },
             storySetting:{ type:"STRING" },
             prologue:{ type:"STRING" }
           },
-          required:["lineA","lineB","relationLine","scoreReason","storySetting","prologue"]
+          required:["lineA","lineB","relationLine","compatibilityScore","scoreReason","storySetting","prologue"]
         }
       }
     };
@@ -276,7 +260,6 @@ function App(){
       if (result.candidates && result.candidates.length > 0) {
         const jsonText = result.candidates[0].content.parts[0].text;
         const parsed = JSON.parse(jsonText);
-        parsed.compatibilityScore = fixedScore; // AI 응답과 무관하게 결정론적 점수로 고정
         setResultData(parsed);
         setStep('result');
       } else {
