@@ -68,6 +68,7 @@ const {useState, useEffect} = React;
 
 // 🟢 사용자가 동적으로 입력한 값을 백엔드 API로 전달하는 함수
 const fetchSajuData = async (person, geminiKey) => {
+  console.log("보내는 데이터", person);
   // 생시 모름인 경우 0시로 기본 처리하되 숫자로 변환
   const parsedHour = person.hourUnknown ? 0 : (parseInt(person.hour, 10) || 0);
   const parsedMinute = parseInt(person.minute, 10) || 0;
