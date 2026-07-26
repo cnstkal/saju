@@ -96,6 +96,9 @@ const fetchSajuData = async (person, geminiKey) => {
   if (!response.ok) {
     const text = await response.text();
     console.log("SAJU ERROR:", text);
+    if (response.status === 429) {
+      throw new Error('사주 서버 요청이 몰려 있어요. 잠시 후 다시 시도해주세요.');
+    }
     throw new Error(text);
   }
   const data = await response.json();
@@ -189,7 +192,8 @@ function App(){
     setError('');
     let sajuData;
     try {
-      const [sajuA, sajuB] = await Promise.all([fetchSajuData(personA, apiKey), fetchSajuData(personB, apiKey)]);
+      const sajuA = await fetchSajuData(personA, apiKey);
+      const sajuB = await fetchSajuData(personB, apiKey);
       sajuData = { personA: sajuA, personB: sajuB };
     } catch (err) {
       console.error(err);
